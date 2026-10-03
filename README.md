@@ -9,7 +9,13 @@ thinking, which tool it is running, what it costs, and how far along it is.
 
 <img src="docs/demo.gif" alt="agent-swarm: six subagents thinking, running tools, writing and finishing, one live row each above the Claude Code prompt" width="100%">
 
-<sub>Recorded from <code>/swarm demo</code> at 2× speed · <a href="docs/demo.mp4">MP4</a></sub>
+<sub>List layout · <a href="docs/demo.mp4">MP4</a></sub>
+
+<img src="docs/demo-cards.gif" alt="The cards layout: one bordered card per agent with an animated core, sparkline, cost and tool trail" width="100%">
+
+<sub>Cards layout · <a href="docs/demo-cards.mp4">MP4</a></sub>
+
+<sub>Both recorded from <code>/swarm demo</code> at 2× speed</sub>
 
 </div>
 
@@ -53,12 +59,8 @@ timeline of thoughts, tool calls with their results and durations, and the final
 
 <img src="docs/inspector.png" alt="The inspector following one agent: its thoughts, tool calls with results and timings, a failed Bash call in red, and its final answer" width="100%">
 
-**Cards or a list.** The list (above) is the default; press `v` (or `/swarm cards`, `/swarm list`) for a card
+**Cards or a list.** The list is the default; press `v` (or `/swarm cards`, `/swarm list`) for a card
 per agent, with a taller animated core, a sparkline of its activity and its tool trail.
-
-<img src="docs/demo-cards.gif" alt="The cards layout: one bordered card per agent with an animated core, sparkline, cost and tool trail" width="100%">
-
-<sub>Cards layout, 2× speed · <a href="docs/demo-cards.mp4">MP4</a></sub>
 
 ## How it behaves
 
