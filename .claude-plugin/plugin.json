@@ -1,0 +1,19 @@
+{
+  "name": "agent-swarm",
+  "version": "0.4.0",
+  "description": "Mission control for your subagents: every spawned agent becomes a live, animated card above the prompt, with its phase, effort, tools, cost and a timeline you can follow",
+  "author": { "name": "Jeff Arese", "url": "https://github.com/jeffarese" },
+  "homepage": "https://github.com/jeffarese/agent-swarm",
+  "repository": "https://github.com/jeffarese/agent-swarm",
+  "license": "MIT",
+  "types": "./types/index.d.ts",
+  "userConfig": {
+    "autoClose": {
+      "type": "string",
+      "title": "Agents view auto-close",
+      "description": "Fold the agents view this long after every agent has finished (a countdown offers to keep it open)",
+      "options": ["off", "10s", "30s", "1m", "5m"],
+      "default": "30s"
+    }
+  }
+}
