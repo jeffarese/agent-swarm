@@ -68,6 +68,8 @@ per agent, with a taller animated core, a sparkline of its activity and its tool
   directly above the prompt, full width at any terminal size (never a sidebar): a header with the
   totals, one line per agent (or cards, `v` toggles), and the inspector. It scrolls when taller than
   the band. `x: close` folds it; `/swarm` (or clicking a square) unfolds it again.
+- **Finished agents:** done, failed and stopped agents disappear 10 seconds after completion,
+  including from the inspector and folded squares. Running agents stay visible.
 - **Folded:** a row of mini squares, one per agent of the current batch; it clears on your next
   prompt once they have all finished. Folded by you, a new spawn leaves it folded.
 - **Footer pill:** `✻ N agents working` at the right of the prompt footer while any agent is live,
@@ -201,6 +203,8 @@ frame, not one per dot) and pack from a cache of encoded cells; a frame equal to
 not blitted, and past 6 live cores they take turns, so a large swarm costs what a few do. The
 animation and once-a-second timers run only while an agent is live, a countdown is due or a redraw
 is held: an idle session costs nothing. Finished agents' rows and settled timeline entries are drawn once.
+A single shared deadline timer removes finished agents after 10 seconds, batches simultaneous
+expirations, and cancels itself when no finished agents remain.
 
 `bench/run.sh [mod folder]` runs a synthetic 8-agent swarm through the engine (list, cards, beside
 16 finished agents, and under the band) plus per-frame timings, and prints what it cost.

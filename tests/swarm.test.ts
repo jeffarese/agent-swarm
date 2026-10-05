@@ -353,6 +353,7 @@ async function finishedWithPaneOpen($: any, on: any) {
 }
 
 test('once every agent finishes the view counts down and folds itself', { options: { autoClose: '10s' } }, async ($, on) => {
+  on('ui.render', () => ({ type: 'Text', props: {}, children: ['engine band'] }))
   const { clock, ui } = await finishedWithPaneOpen($, on)
   expect(await ui.find({ type: 'Text', text: /closing in 10s/ })).toBeDefined()
 
@@ -362,7 +363,7 @@ test('once every agent finishes the view counts down and folds itself', { option
 
   await clock.advance(6_000)
   expect(await isOpenView(ui)).toBe(false)
-  expect(await ui.find({ type: 'Text', text: /all finished/ })).toBeDefined()
+  expect(await ui.find({ type: 'Text', text: /all finished/ })).toBeUndefined()
 })
 
 test('keep open stops the countdown', { options: { autoClose: '10s' } }, async ($, on) => {
@@ -643,9 +644,57 @@ test('/swarm demo plays a scripted swarm to the end, priced, with a child agent'
   await run(30_000)
   expect(await ui.find({ type: 'Text', text: /\b6 live/ })).toBeDefined()
 
-  await run(55_000)
-  expect(await ui.find({ type: 'Text', text: /\b0 live · 6 done/ })).toBeDefined()
   await ui.press({ key: 'pick-demo-' + (5_000_000).toString(36) + '-fixer' })
-  expect(await ui.find({ text: /Fixed invoice\.ts/ })).toBeDefined()
+  let sawAnswer = false
+  for (let i = 0; i < 55; i++) {
+    await run(1_000)
+    if (await ui.find({ text: /Fixed invoice\.ts/ })) sawAnswer = true
+  }
+  expect(sawAnswer).toBe(true)
+  expect(await ui.find({ type: 'Text', text: /\b0 live/ })).toBeDefined()
+  await ui.unmount()
+})
+
+for (const reason of ['answer', 'aborted', 'error'] as const) {
+  test(`finished agents expire after ten seconds (${reason})`, { options: { autoClose: 'off' } }, async ($, on) => {
+    const clock = mock.clock(on, { now: 8_000_000 })
+    let n = 0
+    on('agent.spawn', () => ({ model: 'claude-sonnet-5-5', agentId: `agent-${++n}` }))
+    on('turn.complete', () => ({ text: 'ok' }))
+    await $.agent.spawn(SPAWN)
+    await $.agent.spawn(SPAWN)
+    const ui = await $.ui.mount({ ...PANE, surface: 'terminal' })
+    await $.turn.complete({ answer: 'ok', durationMs: 1, isAborted: reason === 'aborted', turnId: 't', agentId: 'agent-1', reason })
+    await clock.advance(9_999)
+    expect(await ui.find({ key: 'pick-agent-1' })).toBeDefined()
+    await clock.advance(1)
+    expect(await ui.find({ key: 'pick-agent-1' })).toBeUndefined()
+    expect(await ui.find({ key: 'pick-agent-2' })).toBeDefined()
+    await ui.unmount()
+  })
+}
+
+test('expiry follows each completion deadline and clears inspected agents', { options: { autoClose: 'off' } }, async ($, on) => {
+  const clock = mock.clock(on, { now: 9_000_000 })
+  let n = 0
+  on('agent.spawn', () => ({ model: 'claude-sonnet-5-5', agentId: `agent-${++n}` }))
+  on('turn.complete', () => ({ text: 'ok' }))
+  await $.agent.spawn(SPAWN)
+  await $.agent.spawn(SPAWN)
+  const ui = await $.ui.mount({ ...PANE, surface: 'terminal' })
+  await ui.press({ key: 'pick-agent-1' })
+  const finish = (agentId: string) => $.turn.complete({ answer: 'finished answer', durationMs: 1, isAborted: false, turnId: 't', agentId, reason: 'answer' })
+  await finish('agent-1')
+  await clock.advance(5_000)
+  await finish('agent-2')
+  await clock.advance(5_000)
+  expect(await ui.find({ key: 'pick-agent-1' })).toBeUndefined()
+  expect(await ui.find({ text: 'finished answer' })).toBeUndefined()
+  expect(await ui.find({ key: 'pick-agent-2' })).toBeDefined()
+  await clock.advance(4_999)
+  expect(await ui.find({ key: 'pick-agent-2' })).toBeDefined()
+  await clock.advance(1)
+  expect(await ui.find({ key: 'pick-agent-2' })).toBeUndefined()
+  expect(await ui.find({ text: 'No agents yet.' })).toBeDefined()
   await ui.unmount()
 })

@@ -238,6 +238,45 @@ function wake($: EngineInterface) {
   })
 }
 
+const FINISHED_TTL_MS = 10_000
+let expiryTimer: Timer | undefined
+let expiryAt: number | undefined
+
+/** One deadline for the whole swarm; no polling or per-agent timers. */
+async function scheduleExpiry($: EngineInterface) {
+  let next: number | undefined
+  for (const a of snapshot) {
+    if (isLive(a.phase) || a.endedAt === undefined) continue
+    const at = a.endedAt + FINISHED_TTL_MS
+    if (next === undefined || at < next) next = at
+  }
+  if (next === expiryAt) return
+  expiryTimer?.cancel()
+  expiryTimer = undefined
+  expiryAt = next
+  if (next === undefined) return
+  const now = await $.clock.now()
+  if (expiryAt !== next) return
+  expiryTimer = $.clock.after(Math.max(0, next - now), async () => {
+    expiryTimer = undefined
+    expiryAt = undefined
+    const cutoff = (await $.clock.now()) - FINISHED_TTL_MS
+    await mutate($, list => list.filter(a => {
+      if (isLive(a.phase) || a.endedAt === undefined || a.endedAt > cutoff) return true
+      energy.delete(a.id)
+      toolHits.delete(a.id)
+      streams.delete(a.id)
+      steppedUsage.delete(a.id)
+      return false
+    }))
+    const selected = await read($, selectedAtom)
+    if (selected !== '' && !snapshot.some(a => a.id === selected)) {
+      shownId = ''
+      await update($, selectedAtom, () => '')
+    }
+  })
+}
+
 /** Reads the agents back from state once, after a load; every reader and writer waits on it. */
 function restore($: EngineInterface): Promise<void> {
   restoring ??= (async () => {
@@ -247,6 +286,7 @@ function restore($: EngineInterface): Promise<void> {
     revs.pane.n = pane
     revs.band.n = band
     bandSig = bandSignature(list)
+    await scheduleExpiry($)
   })()
 
   return restoring
@@ -356,7 +396,7 @@ async function mutate(
   count('mutate')
   persistSoon($)
   const list = snapshot
-  const writes = [syncLive($, list), refreshBand($, soon)]
+  const writes = [syncLive($, list), refreshBand($, soon), scheduleExpiry($)]
   if (isFullShown() && (logOf === undefined || logOf === shownId)) writes.push(bump($, 'pane', { soon }))
   await Promise.all(writes)
 
