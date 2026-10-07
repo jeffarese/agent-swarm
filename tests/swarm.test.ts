@@ -185,9 +185,10 @@ test('a spawned agent becomes a card that finishes', async ($, on) => {
   await ui.unmount()
 })
 
-test('the list is the default layout and a button switches to cards and back', async ($, on) => {
+test('the list is the default expanded layout and a button switches to cards and back', async ($, on) => {
   mock.clock(on, { now: 1_000_000 })
   on('agent.spawn', () => ({ model: 'claude-sonnet-5-5', agentId: 'agent-1' }))
+  await $.command.run(swarmCommand(''))
   await $.agent.spawn(SPAWN)
 
   const ui = await $.ui.mount({ ...PANE, surface: 'terminal' })
@@ -226,6 +227,7 @@ test('a Bedrock ARN heading shows the family a response reports', async ($, on) 
   on('turn.step', async function* (_$, e) {
     return yield* oneResponse(e)
   })
+  await $.command.run(swarmCommand(''))
   await $.agent.spawn({ ...SPAWN, name: 'auth-scout' })
 
   let ui = await $.ui.mount({ ...PANE, surface: 'terminal' })
@@ -244,6 +246,7 @@ test('a Bedrock ARN heading shows the family a response reports', async ($, on) 
 test('a wide view names both ways to follow an agent in its header', async ($, on) => {
   mock.clock(on, { now: 1_000_000 })
   on('agent.spawn', () => ({ model: 'claude-sonnet-5-5', agentId: 'agent-1' }))
+  await $.command.run(swarmCommand(''))
   await $.agent.spawn(SPAWN)
 
   const ui = await $.ui.mount({ ...PANE, props: { ...PANE.props, bodyColumns: 124 }, surface: 'terminal' })
@@ -256,6 +259,7 @@ test('a wide view names both ways to follow an agent in its header', async ($, o
 test('a narrow view drops the SWARM label and tool count from the header', async ($, on) => {
   mock.clock(on, { now: 1_000_000 })
   on('agent.spawn', () => ({ model: 'claude-sonnet-5-5', agentId: 'agent-1' }))
+  await $.command.run(swarmCommand(''))
   await $.agent.spawn(SPAWN)
 
   const ui = await $.ui.mount({ ...PANE, props: { ...PANE.props, bodyColumns: 52 }, surface: 'terminal' })
@@ -278,7 +282,7 @@ const BAND = {
   },
 } as const
 
-test('a spawn unfolds the whole view above the prompt; close folds it to squares', async ($, on) => {
+test('agents start folded; commands expand the view and close restores the squares', async ($, on) => {
   mock.clock(on, { now: 2_000_000 })
   on('agent.spawn', (_$, e) => ({ model: 'claude-haiku-4-5', agentId: `agent-${e.tool_use_id}` }))
 
@@ -287,21 +291,25 @@ test('a spawn unfolds the whole view above the prompt; close folds it to squares
 
   for (const surface of ['terminal', 'desktop'] as const) {
     const ui = await $.ui.mount({ ...BAND, surface })
+    expect(await isOpenView(ui)).toBe(false)
+    expect(await ui.find({ type: 'Text', text: /2 working/ })).toBeDefined()
+    expect(await ui.find({ type: 'Button', text: /Plan/ })).toBeDefined()
+    await $.command.run(swarmCommand(''))
     expect(await isOpenView(ui)).toBe(true)
     expect(await ui.find({ type: 'Text', text: /2 live/ })).toBeDefined()
     await ui.press({ key: 'close' })
     expect(await isOpenView(ui)).toBe(false)
-    expect(await ui.find({ type: 'Text', text: /2 working/ })).toBeDefined()
-    expect(await ui.find({ type: 'Button', text: /Plan/ })).toBeDefined()
     await ui.unmount()
-    await $.command.run(swarmCommand(''))
   }
 
-  // Folded by the person, a later spawn leaves it folded.
   const ui = await $.ui.mount({ ...BAND, surface: 'terminal' })
-  await ui.press({ key: 'close' })
   await $.agent.spawn({ ...SPAWN, tool_use_id: 'c' })
   expect(await isOpenView(ui)).toBe(false)
+  expect(await ui.find({ type: 'Text', text: /3 working/ })).toBeDefined()
+  await $.command.run(swarmCommand(''))
+  await $.agent.spawn({ ...SPAWN, tool_use_id: 'd' })
+  expect(await isOpenView(ui)).toBe(true)
+  expect(await ui.find({ type: 'Text', text: /4 live/ })).toBeDefined()
   await ui.unmount()
 })
 
@@ -338,6 +346,7 @@ async function finishedWithPaneOpen($: any, on: any) {
   on('agent.spawn', () => ({ model: 'claude-sonnet-5-5', agentId: 'agent-1' }))
   on('turn.complete', () => ({ text: 'ok' }))
   await $.session.start(START)
+  await $.command.run(swarmCommand(''))
   await $.agent.spawn(SPAWN)
   const ui = await $.ui.mount({ ...PANE, surface: 'terminal' })
   await $.turn.complete({
@@ -364,6 +373,9 @@ test('once every agent finishes the view counts down and folds itself', { option
   await clock.advance(6_000)
   expect(await isOpenView(ui)).toBe(false)
   expect(await ui.find({ type: 'Text', text: /all finished/ })).toBeUndefined()
+  await $.agent.spawn(SPAWN)
+  expect(await isOpenView(ui)).toBe(false)
+  expect(await ui.find({ type: 'Text', text: /1 working/ })).toBeDefined()
 })
 
 test('keep open stops the countdown', { options: { autoClose: '10s' } }, async ($, on) => {
@@ -431,7 +443,7 @@ async function* thinkThenGrep(e: { turnId: string; index: number }) {
   return { turnId: e.turnId, index: e.index, answer: '', toolUses: [], stopReason: 'tool_use' as const, usage: USAGE }
 }
 
-async function agentWithActivity($: any, on: any) {
+async function agentWithActivity($: any, on: any, open = true) {
   mock.clock(on, { now: 5_000_000 })
   on('agent.spawn', (_$: unknown, e: { tool_use_id: string }) => ({
     model: 'claude-sonnet-5-5',
@@ -441,6 +453,7 @@ async function agentWithActivity($: any, on: any) {
     return yield* thinkThenGrep(e)
   })
   on('tool.call', () => ({ result: { matches: 3 }, text: 'src/a.ts\nsrc/b.ts\nsrc/c.ts' }))
+  if (open) await $.command.run(swarmCommand(''))
   await $.agent.spawn(SPAWN)
   await step($, 'agent-1')
   await $.tool.call({ tool: 'Grep', tool_use_id: 'tu_grep', pattern: 'auth', agentId: 'agent-1' })
@@ -500,6 +513,7 @@ test('a selected agent holds the view open when all finish', { options: { autoCl
   const clock = mock.clock(on, { now: 6_000_000 })
   on('agent.spawn', () => ({ model: 'claude-sonnet-5-5', agentId: 'agent-1' }))
   on('turn.complete', () => ({ text: 'ok' }))
+  await $.command.run(swarmCommand(''))
   await $.agent.spawn(SPAWN)
   const ui = await $.ui.mount({ ...PANE, surface: 'terminal' })
   await ui.press({ key: 'pick-agent-1' })
@@ -584,16 +598,17 @@ test('prev walks backwards and wraps from the first agent to the last', async ($
 })
 
 test('picking a folded square unfolds the view on that agent', async ($, on) => {
-  await agentWithActivity($, on)
+  await agentWithActivity($, on, false)
 
   const ui = await $.ui.mount({ ...BAND, surface: 'terminal' })
   for (let i = 0; i < 2; i++) {
-    await ui.press({ key: 'close' })
+    expect(await isOpenView(ui)).toBe(false)
     await ui.press({ key: 'band-pick-agent-1' })
     // A square never toggles the inspector off: picked twice, the agent is still shown.
     expect(await isOpenView(ui)).toBe(true)
     expect(await ui.find({ key: 'inspector' })).toBeDefined()
     expect(await ui.find({ text: /Find the auth handlers/ })).toBeDefined()
+    await ui.press({ key: 'close' })
   }
   await ui.unmount()
 })
@@ -655,21 +670,25 @@ test('/swarm demo plays a scripted swarm to the end, priced, with a child agent'
   await ui.unmount()
 })
 
-for (const reason of ['answer', 'aborted', 'error'] as const) {
-  test(`finished agents expire after ten seconds (${reason})`, { options: { autoClose: 'off' } }, async ($, on) => {
+for (const [reason, expanded] of (['answer', 'aborted', 'error'] as const).flatMap(reason =>
+  [false, true].map(expanded => [reason, expanded] as const),
+)) {
+  test(`finished agents expire after ten seconds (${reason}, ${expanded ? 'expanded' : 'folded'})`, { options: { autoClose: 'off' } }, async ($, on) => {
     const clock = mock.clock(on, { now: 8_000_000 })
     let n = 0
     on('agent.spawn', () => ({ model: 'claude-sonnet-5-5', agentId: `agent-${++n}` }))
     on('turn.complete', () => ({ text: 'ok' }))
+    if (expanded) await $.command.run(swarmCommand(''))
     await $.agent.spawn(SPAWN)
     await $.agent.spawn(SPAWN)
+    const pick = (id: string) => `${expanded ? '' : 'band-'}pick-${id}`
     const ui = await $.ui.mount({ ...PANE, surface: 'terminal' })
     await $.turn.complete({ answer: 'ok', durationMs: 1, isAborted: reason === 'aborted', turnId: 't', agentId: 'agent-1', reason })
     await clock.advance(9_999)
-    expect(await ui.find({ key: 'pick-agent-1' })).toBeDefined()
+    expect(await ui.find({ key: pick('agent-1') })).toBeDefined()
     await clock.advance(1)
-    expect(await ui.find({ key: 'pick-agent-1' })).toBeUndefined()
-    expect(await ui.find({ key: 'pick-agent-2' })).toBeDefined()
+    expect(await ui.find({ key: pick('agent-1') })).toBeUndefined()
+    expect(await ui.find({ key: pick('agent-2') })).toBeDefined()
     await ui.unmount()
   })
 }
@@ -679,6 +698,7 @@ test('expiry follows each completion deadline and clears inspected agents', { op
   let n = 0
   on('agent.spawn', () => ({ model: 'claude-sonnet-5-5', agentId: `agent-${++n}` }))
   on('turn.complete', () => ({ text: 'ok' }))
+  await $.command.run(swarmCommand(''))
   await $.agent.spawn(SPAWN)
   await $.agent.spawn(SPAWN)
   const ui = await $.ui.mount({ ...PANE, surface: 'terminal' })

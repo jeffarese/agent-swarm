@@ -57,7 +57,6 @@ const bandRevRef = { plugin: 'agent-swarm', key: 'bandRev' } as const
 const bandRevAtom = atom(bandRevRef, 0)
 const liveRef = { plugin: 'agent-swarm', key: 'live' } as const
 const liveAtom = atom(liveRef, 0)
-const dismissedAtom = atom({ plugin: 'agent-swarm', key: 'isDismissed' } as const, false)
 /** The band shows the whole view (header, agents, inspector) rather than its squares. */
 const openAtom = atom({ plugin: 'agent-swarm', key: 'isOpen' } as const, false)
 const compactAtom = atom({ plugin: 'agent-swarm', key: 'isCompact' } as const, true)
@@ -416,7 +415,7 @@ async function countdown($: EngineInterface) {
 
     return
   }
-  await closeView($, false)
+  await closeView($)
   $.ui.toast('Agents view folded · /swarm to reopen')
 }
 
@@ -442,20 +441,14 @@ async function commitStream($: EngineInterface, id: string) {
   if (s.text.trim() !== '') await log($, id, { kind: s.kind, at: s.at, text: head(s.text, 600) })
 }
 
-/** Unfolds the band into the whole view; unasked (a spawn) only if the person has not folded it. */
-async function openView($: EngineInterface, isAsked: boolean) {
-  if (isAsked) {
-    await update($, dismissedAtom, () => false)
-  } else if (await read($, dismissedAtom)) {
-    return
-  }
+/** Unfolds the band only when requested by a command or an agent selection. */
+async function openView($: EngineInterface) {
   await update($, openAtom, () => true)
 }
 
-/** Folds the view back to the band's squares; the person's fold holds until they ask again. */
-async function closeView($: EngineInterface, byPerson: boolean) {
+/** Folds the view back to the band's default squares until the person opens it again. */
+async function closeView($: EngineInterface) {
   closeAt = undefined
-  if (byPerson) await update($, dismissedAtom, () => true)
   await update($, openAtom, () => false)
 }
 
@@ -466,7 +459,7 @@ async function closeView($: EngineInterface, byPerson: boolean) {
 async function select($: EngineInterface, id: string, { toggle = true, open = false } = {}) {
   shownId = await update($, selectedAtom, cur => (toggle && cur === id ? '' : id))
   if (shownId !== '') closeAt = undefined
-  if (open) await openView($, true)
+  if (open) await openView($)
   if (shownId !== '') {
     $.clock.after(60, () => {
       if (fullSite === undefined) return
@@ -520,7 +513,6 @@ type Card = Pick<SwarmAgent, 'description' | 'prompt' | 'type' | 'name' | 'model
 async function addCard($: EngineInterface, id: string, card: Card) {
   const now = await $.clock.now()
   await mutate($, list => [...list.filter(a => a.id !== id), { ...blank(id, now), ...card, isStub: false }])
-  openView($, false).catch(() => undefined)
 }
 
 function stepStarted($: EngineInterface, id: string, effort: string | number | undefined, model: string) {
@@ -656,7 +648,7 @@ async function startDemo($: EngineInterface) {
     })
   })
   const sleep = (ms: number) => new Promise<void>(go => waits.push({ at: now + ms, go }))
-  await openView($, true)
+  await openView($)
   void playDemo(
     {
       spawn: (id, card) => addCard($, id, card),
@@ -1384,7 +1376,7 @@ async function drawFull($: EngineInterface, e: RenderInput<'AbovePrompt'>) {
             onPress={() => void mutate($, l => l.filter(a => isLive(a.phase)))}
           />
         )}
-        <Button key="close" label="close" hotkey="x" plain dimColor onPress={() => void closeView($, true)} />
+        <Button key="close" label="close" hotkey="x" plain dimColor onPress={() => void closeView($)} />
       </Box>
     )
 
@@ -1526,7 +1518,7 @@ export const register: Register = (on, options) => {
     }
     if (sub === 'list' || sub === 'cards' || sub === 'compact') {
       const isCompact = await update($, compactAtom, v => (sub === 'compact' ? !v : sub === 'list'))
-      await openView($, true)
+      await openView($)
 
       return { text: `Agents view shows ${isCompact ? 'a list' : 'cards'}.` }
     }
@@ -1544,7 +1536,7 @@ export const register: Register = (on, options) => {
 
       return { text: deny === undefined ? `Auto-close set to ${arg}.` : `Could not set auto-close: ${deny}` }
     }
-    await openView($, true)
+    await openView($)
 
     return { text: 'Agents view open above the prompt.' }
   })

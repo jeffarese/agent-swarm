@@ -1,6 +1,6 @@
 {
   "name": "agent-swarm",
-  "version": "0.4.1",
+  "version": "0.4.2",
   "description": "Mission control for your subagents: every spawned agent becomes a live, animated card above the prompt, with its phase, effort, tools, cost and a timeline you can follow",
   "author": { "name": "Jeff Arese", "url": "https://github.com/jeffarese" },
   "homepage": "https://github.com/jeffarese/agent-swarm",

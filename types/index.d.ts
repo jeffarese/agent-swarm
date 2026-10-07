@@ -74,7 +74,6 @@ declare module 'claude-code' {
   interface PluginState {
     'agent-swarm': {
       agents: SwarmAgent[]
-      isDismissed: boolean
       isCompact: boolean
       /** The band shows the whole view rather than its squares. */
       isOpen: boolean

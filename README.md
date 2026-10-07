@@ -59,19 +59,20 @@ timeline of thoughts, tool calls with their results and durations, and the final
 
 <img src="docs/inspector.png" alt="The inspector following one agent: its thoughts, tool calls with results and timings, a failed Bash call in red, and its final answer" width="100%">
 
-**Cards or a list.** The list is the default; press `v` (or `/swarm cards`, `/swarm list`) for a card
-per agent, with a taller animated core, a sparkline of its activity and its tool trail.
+**Cards or a list.** The view starts folded into mini squares. When expanded, it uses a list;
+press `v` (or `/swarm cards`, `/swarm list`) for a card per agent, with a taller animated core,
+a sparkline of its activity and its tool trail.
 
 ## How it behaves
 
-- **The view, above the prompt:** as soon as an agent spawns, a framed view unfolds in the band
-  directly above the prompt, full width at any terminal size (never a sidebar): a header with the
-  totals, one line per agent (or cards, `v` toggles), and the inspector. It scrolls when taller than
-  the band. `x: close` folds it; `/swarm` (or clicking a square) unfolds it again.
+- **The view, above the prompt:** agents appear as a compact row of mini squares by default.
+  `/swarm` (or clicking a square) expands it into a full-width framed view with totals, one line
+  per agent (or cards, `v` toggles), and the inspector. It scrolls when taller than the band.
+  `x: close` returns to the mini squares; new agents keep the current view.
 - **Finished agents:** done, failed and stopped agents disappear 10 seconds after completion,
   including from the inspector and folded squares. Running agents stay visible.
 - **Folded:** a row of mini squares, one per agent of the current batch; it clears on your next
-  prompt once they have all finished. Folded by you, a new spawn leaves it folded.
+  prompt once they have all finished. A new spawn leaves it folded.
 - **Footer pill:** `✻ N agents working` at the right of the prompt footer while any agent is live,
   a spinning star and a purple shimmer sweeping across the text.
 - **Inspector:** click an agent (anywhere on its line or card, its description, or `1`–`9` while
@@ -87,7 +88,7 @@ per agent, with a taller animated core, a sparkline of its activity and its tool
   layout toggle (`cards` / `list`, hotkey `v`) and a `clear done` button (hotkey `c`) when finished
   agents exist. The header keeps the top right clear of the engine's close mark and leaves a row
   before the agents.
-- List view (the default): per agent, a heading line
+- List view (the default expanded layout): per agent, a heading line
   `✎ opus@high ▁▃▅ animation ▅▃▁  WRITE` (headings padded so the animations line up), then
   its description, then a dim activity line with `$cost · ⚒tools · elapsed` on the right.
 - Cards view (`cards` button, `v`, or `/swarm cards`): one bordered card per agent (cards flow
@@ -187,8 +188,8 @@ Any other tool shows its first letter, uppercased, in light gray; `·` means no 
 - `/swarm perf` - what the mod itself has cost since load (or `/swarm perf reset`): render and
   animation-tick timings, blits, blits skipped as unchanged, state writes.
 - `/swarm autoclose [off|10s|30s|1m|5m]` - show or set the auto-close delay.
-- A spawn unfolds the view unless you folded it yourself; folding it stops that until you run
-  `/swarm` (or click a square) again.
+- New agents appear in the folded mini squares by default. Run `/swarm` (or click a square)
+  to expand; later spawns keep whichever view you chose.
 
 ## Performance
 
